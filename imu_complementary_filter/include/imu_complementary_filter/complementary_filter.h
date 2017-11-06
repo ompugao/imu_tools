@@ -51,12 +51,16 @@ class ComplementaryFilter
     // When the filter is in the steady state, bias estimation will occur (if the
     // parameter is enabled).
     bool getSteadyState() const;
+    void setSteadyState(bool);
 
     void setDoBiasEstimation(bool do_bias_estimation);
     bool getDoBiasEstimation() const;
 
     void setDoAdaptiveGain(bool do_adaptive_gain);
     bool getDoAdaptiveGain() const;
+
+    void setUseExternalSteadiness(bool use_external_steadiness);
+    bool getUseExternalSteadiness() const;
   
     double getAngularVelocityBiasX() const;
     double getAngularVelocityBiasY() const;
@@ -109,6 +113,7 @@ class ComplementaryFilter
     // Parameter whether to do adaptive gain or not.
     bool do_adaptive_gain_;
 
+    bool use_external_steadiness_;
     bool initialized_;
     bool steady_state_;
 

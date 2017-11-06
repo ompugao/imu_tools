@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 )
 
+find_package(Boost REQUIRED COMPONENTS thread)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES complementary_filter

@@ -37,10 +37,12 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
+#include <std_msgs/Bool.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <boost/thread/mutex.hpp>
 
 #include "imu_complementary_filter/complementary_filter.h"
 
@@ -58,6 +60,7 @@ class ComplementaryFilterROS
     // Convenience typedefs
     typedef sensor_msgs::Imu ImuMsg;
     typedef sensor_msgs::MagneticField MagMsg;
+    typedef std_msgs::Bool BoolMsg;
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Imu, 
         MagMsg> MySyncPolicy;
     typedef message_filters::sync_policies::ApproximateTime<ImuMsg, MagMsg> 
@@ -65,6 +68,7 @@ class ComplementaryFilterROS
     typedef message_filters::Synchronizer<SyncPolicy> Synchronizer;    
     typedef message_filters::Subscriber<ImuMsg> ImuSubscriber; 
     typedef message_filters::Subscriber<MagMsg> MagSubscriber;
+    typedef message_filters::Subscriber<BoolMsg> SteadinessSubscriber; 
 
     // ROS-related variables.
     ros::NodeHandle nh_;
@@ -73,6 +77,7 @@ class ComplementaryFilterROS
     boost::shared_ptr<Synchronizer> sync_;
     boost::shared_ptr<ImuSubscriber> imu_subscriber_;
     boost::shared_ptr<MagSubscriber> mag_subscriber_;
+    boost::shared_ptr<SteadinessSubscriber> steadiness_subscriber_;
 
     ros::Publisher imu_publisher_;
     ros::Publisher rpy_publisher_;
@@ -92,11 +97,13 @@ class ComplementaryFilterROS
     ComplementaryFilter filter_;
     ros::Time time_prev_;
     bool initialized_filter_;
+    boost::mutex filter_mutex_;
 
     void initializeParams();
     void imuCallback(const ImuMsg::ConstPtr& imu_msg_raw);
     void imuMagCallback(const ImuMsg::ConstPtr& imu_msg_raw,
                         const MagMsg::ConstPtr& mav_msg);
+    void steadinessCallback(const BoolMsg::ConstPtr& steadiness_msg);
     void publish(const sensor_msgs::Imu::ConstPtr& imu_msg_raw);
 
     tf::Quaternion hamiltonToTFQuaternion(

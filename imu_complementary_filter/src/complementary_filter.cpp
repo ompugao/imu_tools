@@ -50,6 +50,7 @@ ComplementaryFilter::ComplementaryFilter() :
     bias_alpha_(0.01),
     do_bias_estimation_(true),
     do_adaptive_gain_(false),
+    use_external_steadiness_(false),
     initialized_(false),
     steady_state_(false),
     q0_(1), q1_(0), q2_(0), q3_(0),
@@ -76,6 +77,22 @@ void ComplementaryFilter::setDoAdaptiveGain(bool do_adaptive_gain)
 bool ComplementaryFilter::getDoAdaptiveGain() const
 {
   return do_adaptive_gain_;
+}
+
+void ComplementaryFilter::setUseExternalSteadiness(bool use_external_steadiness)
+{
+  use_external_steadiness_ = use_external_steadiness;
+}
+
+bool ComplementaryFilter::getUseExternalSteadiness() const
+{
+  return use_external_steadiness_;
+}
+void ComplementaryFilter::setSteadyState(bool steady_state)
+{
+  if (use_external_steadiness_) {
+    steady_state_ = steady_state;
+  }
 }
 
 bool ComplementaryFilter::setGainAcc(double gain)
@@ -285,8 +302,9 @@ bool ComplementaryFilter::checkState(double ax, double ay, double az,
 void ComplementaryFilter::updateBiases(double ax, double ay, double az, 
                                        double wx, double wy, double wz)
 {
-  steady_state_ = checkState(ax, ay, az, wx, wy, wz);
-
+  if (!use_external_steadiness_) {
+    steady_state_ = checkState(ax, ay, az, wx, wy, wz);
+  }
   if (steady_state_)
   {
     wx_bias_ += bias_alpha_ * (wx - wx_bias_);

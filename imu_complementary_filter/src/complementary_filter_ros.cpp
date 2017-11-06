@@ -66,6 +66,11 @@ ComplementaryFilterROS::ComplementaryFilterROS(
   // Register IMU raw data subscriber.
   imu_subscriber_.reset(new ImuSubscriber(nh_, ros::names::resolve("imu") + "/data_raw", queue_size));
 
+  if (filter_.getUseExternalSteadiness()) {
+    steadiness_subscriber_.reset(new SteadinessSubscriber(nh_, ros::names::resolve("imu") + "/external_steady_state", queue_size));
+    steadiness_subscriber_->registerCallback(&ComplementaryFilterROS::steadinessCallback, this);
+  }
+
   // Register magnetic data subscriber.
   if (use_mag_)
   {
@@ -95,6 +100,7 @@ void ComplementaryFilterROS::initializeParams()
   bool do_bias_estimation;
   double bias_alpha;
   bool do_adaptive_gain;
+  bool use_external_steadiness;
 
   if (!nh_private_.getParam ("fixed_frame", fixed_frame_))
     fixed_frame_ = "odom";
@@ -116,6 +122,8 @@ void ComplementaryFilterROS::initializeParams()
     do_bias_estimation = true;
   if (!nh_private_.getParam ("bias_alpha", bias_alpha))
     bias_alpha = 0.01;
+  if (!nh_private_.getParam ("use_external_steadiness", use_external_steadiness))
+    use_external_steadiness = false;
   if (!nh_private_.getParam ("do_adaptive_gain", do_adaptive_gain))
     do_adaptive_gain = true;
 
@@ -127,6 +135,7 @@ void ComplementaryFilterROS::initializeParams()
 
   filter_.setDoBiasEstimation(do_bias_estimation);
   filter_.setDoAdaptiveGain(do_adaptive_gain);
+  filter_.setUseExternalSteadiness(use_external_steadiness);
 
   if(!filter_.setGainAcc(gain_acc))
     ROS_WARN("Invalid gain_acc passed to ComplementaryFilter.");
@@ -153,7 +162,8 @@ void ComplementaryFilterROS::initializeParams()
 
 void ComplementaryFilterROS::imuCallback(const ImuMsg::ConstPtr& imu_msg_raw)
 {
-  const geometry_msgs::Vector3& a = imu_msg_raw->linear_acceleration;
+  boost::mutex::scoped_lock lock(filter_mutex_);
+  const geometry_msgs::Vector3& a = imu_msg_raw->linear_acceleration; 
   const geometry_msgs::Vector3& w = imu_msg_raw->angular_velocity;
   const ros::Time& time = imu_msg_raw->header.stamp;
 
@@ -184,7 +194,8 @@ void ComplementaryFilterROS::imuCallback(const ImuMsg::ConstPtr& imu_msg_raw)
 void ComplementaryFilterROS::imuMagCallback(const ImuMsg::ConstPtr& imu_msg_raw,
                                             const MagMsg::ConstPtr& mag_msg)
 {
-  const geometry_msgs::Vector3& a = imu_msg_raw->linear_acceleration;
+  boost::mutex::scoped_lock lock(filter_mutex_);
+  const geometry_msgs::Vector3& a = imu_msg_raw->linear_acceleration; 
   const geometry_msgs::Vector3& w = imu_msg_raw->angular_velocity;
   const geometry_msgs::Vector3& m = mag_msg->magnetic_field;
   const ros::Time& time = imu_msg_raw->header.stamp;
@@ -213,6 +224,11 @@ void ComplementaryFilterROS::imuMagCallback(const ImuMsg::ConstPtr& imu_msg_raw,
   //printf("%.6f\n", dt_tot);
   // Publish state.
   publish(imu_msg_raw);
+}
+
+void ComplementaryFilterROS::steadinessCallback(const BoolMsg::ConstPtr& steadiness_msg) {
+  boost::mutex::scoped_lock lock(filter_mutex_);
+  filter_.setSteadyState(steadiness_msg->data);
 }
 
 tf::Quaternion ComplementaryFilterROS::hamiltonToTFQuaternion(
